@@ -169,7 +169,7 @@ class l2v:
                 msgs["L"].append(float(l))
                 msgs["P"].append(float(prior.data))
                 msgs["R"].append(rate)
-                #j += 1
+                j += 1
             #serializers.save_hdf5("lda2vec.hdf5", self.model)
         return data, msgs
 
@@ -268,6 +268,6 @@ class l2v:
                 msgs["P"].append(float(prior.data))
                 msgs["R"].append(rate)
                 
-                #j += 1
+                j += 1
             #serializers.save_hdf5("lda2vec.hdf5", self.model)
         return data, 
