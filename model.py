@@ -8,11 +8,27 @@ from lda2vec import dirichlet_likelihood
 from lda2vec.utils import move
 from lda2vec import prepare_topics
 
+
 class LDA2Vec(Chain):
+    # ------------------------------------------------------------------------------------------------------------------
     def __init__(self, n_documents=100, n_document_topics=10,
                  n_units=256, n_vocab=1000, dropout_ratio=0.5, train=True,
                  counts=None, n_samples=15, word_dropout_ratio=0.0,
                  power=0.75, temperature=1.0):
+        """
+        
+        :param n_documents: 
+        :param n_document_topics: 
+        :param n_units: 
+        :param n_vocab: 
+        :param dropout_ratio: 
+        :param train: 
+        :param counts: 
+        :param n_samples: 
+        :param word_dropout_ratio: 
+        :param power: 
+        :param temperature: 
+        """
         em = EmbedMixture(n_documents, n_document_topics, n_units,
                           dropout_ratio=dropout_ratio, temperature=temperature)
         kwargs = {}
@@ -28,17 +44,34 @@ class LDA2Vec(Chain):
         self.word_dropout_ratio = word_dropout_ratio
         self.n_samples = n_samples
 
+    # ------------------------------------------------------------------------------------------------------------------
     def prior(self):
+        """
+        
+        :return: 
+        """
         dl1 = dirichlet_likelihood(self.mixture.weights)
         return dl1
 
+    # ------------------------------------------------------------------------------------------------------------------
     def fit_partial(self, rdoc_ids, rword_indices, window=5,
                     update_words=False, update_topics=True):
+        """
+        
+        :param rdoc_ids: 
+        :param rword_indices: 
+        :param window: 
+        :param update_words: 
+        :param update_topics: 
+        :return: 
+        """
         doc_ids, word_indices = move(self.xp, rdoc_ids, rword_indices)
+        # TODO: is this really needed above? if the action does something, don't allocate memory for it
         pivot_idx = next(move(self.xp, rword_indices[window: -window]))
         pivot = F.embed_id(pivot_idx, self.sampler.W)
         if not update_words:
             pivot.unchain_backward()
+
         doc_at_pivot = rdoc_ids[window: -window]
         doc = self.mixture(next(move(self.xp, doc_at_pivot)),
                            update_only_docs=not update_topics)
@@ -50,6 +83,7 @@ class LDA2Vec(Chain):
             # Skip predicting the current pivot
             if frame == 0:
                 continue
+
             # Predict word given context and pivot word
             # The target starts before the pivot
             targetidx = rword_indices[start + frame: end + frame]
@@ -67,4 +101,5 @@ class LDA2Vec(Chain):
             if not update_words:
                 # Wipe out any gradient accumulation on word vectors
                 self.sampler.W.grad *= 0.0
+
         return loss.data

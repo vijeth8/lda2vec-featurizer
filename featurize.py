@@ -23,40 +23,46 @@ cuda.get_device(gpu_id).use()
 print "Using GPU " + str(gpu_id)
 
 
-
 class Lda2VecFeaturizer:
-    def __init__(self,\
-                clambda=200,\
-                n_topics=10,\
-                batchsize=4096,\
-                power=0.75,\
-                words_pretrained=True,\
-                temperature=1,\
-                max_length=1000,\
-                min_count=0,\
-                word2vec_path=None):
+    # ------------------------------------------------------------------------------------------------------------------
+    def __init__(self, clambda=200, n_topics=10, batchsize=4096, power=0.75, words_pretrained=True, temperature=1,
+                 max_length=1000, min_count=0, word2vec_path=None):
+        """
+        Put class description and init procedures here
         
-        # 'Strength' of the dircihlet prior; 200.0 seems to work well
+        :param clambda: int, 'Strength' of the dircihlet prior; 200.0 seems to work well 
+        :param n_topics: int, Number of topics to fit
+        :param batchsize: 
+        :param power: int, Power for neg sampling
+        :param words_pretrained: 
+        :param temperature: 
+        :param max_length: 
+        :param min_count: 
+        :param word2vec_path: 
+        """
+        
         self.clambda = clambda
-        # Number of topics to fit
-        self.n_topics = n_topics #int(os.getenv('n_topics', 10))
+        self.n_topics = n_topics
         self.batchsize = batchsize
-        # Power for neg sampling
-        self.power = power #float(os.getenv('power', 0.75))
+        self.power = power  #float(os.getenv('power', 0.75))
         # Intialize with pretrained word vectors
-        self.words_pretrained = words_pretrained #bool(int(os.getenv('pretrained', True)))
+        self.words_pretrained = words_pretrained  #bool(int(os.getenv('pretrained', True)))
         self.temp = temperature
         self.max_length = max_length
         self.min_count = min_count
         self.word2vec_model = KeyedVectors.load_word2vec_format(word2vec_path, binary=True)
 
+    # ------------------------------------------------------------------------------------------------------------------
     def preprocess(self, docs=None):
-
+        """
+        
+        :param docs: 
+        :return: 
+        """
         assert (isinstance(docs, list)), ("input list of documents")
         assert (all(isinstance(doc, unicode) for doc in docs)),("expected unicode, got string")
         
         self.corpus = Corpus()
-        
         tokens, self.vocab = preprocess.tokenize(docs, self.max_length, merge=False,n_threads=4)
         
         # Make a ranked list of rare vs frequent words
@@ -73,16 +79,13 @@ class Lda2VecFeaturizer:
         # Words tend to have power law frequency, so selectively
         # downsample the most prevalent words
         clean = self.corpus.subsample_frequent(pruned)
-        # Now flatten a 2D array of document per row and word position
-        # per column to a 1D array of words. This will also remove skips
-        # and OoV words
+        # Now flatten a 2D array of document per row and word position per column to a 1D array of words
+        # This will also remove skips and OoV words
         self.doc_ids = np.arange(pruned.shape[0])
         self.flattened, (self.doc_ids,) = self.corpus.compact_to_flat(pruned, self.doc_ids)
 
         self.vectors, s, f = self.corpus.compact_word_vectors(self.vocab, model = self.word2vec_model)
         # vectors = np.delete(vectors,77743,0)
-        # Model Parameters
-        # Number of documents
         self.n_docs = len(docs) #doc_ids.max() + 1
         # Number of unique words in the vocabulary
         self.n_vocab=self.flattened.max()  + 1
@@ -100,10 +103,16 @@ class Lda2VecFeaturizer:
         # Get the string representation for every compact key
         self.words = self.corpus.word_list(self.vocab)[:self.n_vocab]
 
-
-        
+    # ------------------------------------------------------------------------------------------------------------------
     def train(self,docs=None, epochs=200, update_words=False, update_topics=True):
+        """
         
+        :param docs: 
+        :param epochs: 
+        :param update_words: 
+        :param update_topics: 
+        :return: 
+        """
         logging.info("preprocessing...")
         self.preprocess(docs)
         logging.info('preprocessed!')
@@ -116,9 +125,7 @@ class Lda2VecFeaturizer:
                         n_samples=15,\
                         power=self.power,\
                         temperature=self.temp)
-        
-        
-        
+
         if self.words_pretrained:
             self.train_model.sampler.W.data[:, :] = self.vectors[:self.n_vocab, :]
 
@@ -128,8 +135,6 @@ class Lda2VecFeaturizer:
         optimizer.setup(self.train_model)
         clip = chainer.optimizer.GradientClipping(5.0)
         optimizer.add_hook(clip)
-        
-        
         
         j = 0
         msgs = defaultdict(list)
@@ -176,18 +181,29 @@ class Lda2VecFeaturizer:
             print "\n ================================= \n"
             #serializers.save_hdf5("lda2vec.hdf5", self.model)
             msgs["loss_per_epoch"].append(float(l))
+
         return data, msgs
 
-    
-    def initialize_infer(self,\
-                clambda=200,\
-                batchsize=4096,\
-                power=0.75,\
-                words_pretrained=True,\
-                temperature=1,\
-                max_length=1000,\
+    # ------------------------------------------------------------------------------------------------------------------
+    def initialize_infer(self,
+                clambda=200,
+                batchsize=4096,
+                power=0.75,
+                words_pretrained=True,
+                temperature=1,
+                max_length=1000,
                 min_count=0):
+        """
         
+        :param clambda: 
+        :param batchsize: 
+        :param power: 
+        :param words_pretrained: 
+        :param temperature: 
+        :param max_length: 
+        :param min_count: 
+        :return: 
+        """
         # 'Strength' of the dircihlet prior; 200.0 seems to work well
         self.clambda = clambda
         # Number of topics to fit
@@ -202,8 +218,17 @@ class Lda2VecFeaturizer:
 
         logging.info('Test parameters initialized!')
 
+    # ------------------------------------------------------------------------------------------------------------------
     def infer(self,docs=None,epochs=200, update_words=False, update_topics=False, topic_vectors=None):
+        """
         
+        :param docs: 
+        :param epochs: 
+        :param update_words: 
+        :param update_topics: 
+        :param topic_vectors: 
+        :return: 
+        """
         self.preprocess(docs)
         
         logging.info('preprocessed!')
@@ -233,8 +258,6 @@ class Lda2VecFeaturizer:
         clip = chainer.optimizer.GradientClipping(5.0)
         optimizer.add_hook(clip)
         
-        
-        
         j = 0
         msgs = defaultdict(list)
         for epoch in range(epochs):
@@ -244,15 +267,18 @@ class Lda2VecFeaturizer:
                                   cuda.to_cpu(self.infer_model.sampler.W.data).copy(),
                                   self.words)
             top_words = print_top_words_per_topic(data)
+
             if j % 100 == 0 and j > 100:
                 coherence = topic_coherence(top_words)
                 for j in range(self.n_topics):
                     print j, coherence[(j, 'cv')]
+
                 kw = dict(top_words=top_words, coherence=coherence, epoch=epoch)
                 #progress[str(epoch)] = pickle.dumps(kw)
             data['doc_lengths'] = self.doc_lengths
             data['term_frequency'] = self.term_frequency
             #np.savez('topics.pyldavis', **data)
+
             for d, f in utils.chunks(self.batchsize, self.doc_ids, self.flattened):
                 t0 = time.time()
                 optimizer.zero_grads()
@@ -269,16 +295,14 @@ class Lda2VecFeaturizer:
                 dt = t1 - t0
                 rate = self.batchsize / dt
                 
-                
-
                 msgs["E"].append(epoch)
                 msgs["L"].append(float(l))
-
-                
                 j += 1
+
             logs = dict(loss=float(l), epoch=epoch, j=j, prior=float(prior.data), rate=rate)
             print msg.format(**logs)
             print "\n ================================= \n"
             #serializers.save_hdf5("lda2vec.hdf5", self.model)
             msgs["loss_per_epoch"].append(float(l))
+
         return data, msgs
