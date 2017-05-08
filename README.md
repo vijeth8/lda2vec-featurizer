@@ -1,1 +1,1 @@
-# lda2vec-class
+# lda2vec-featurizer
