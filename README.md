@@ -1,2 +1,2 @@
 # lda2vec-featurizer
-![alt pdf](l2v.pdf)
+![Model View Controller](l2v.pdf)
