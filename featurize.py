@@ -1,3 +1,13 @@
+import time
+import shelve
+import logging
+from collections import defaultdict
+
+import numpy as np
+import chainer
+from chainer import cuda
+import chainer.optimizers as O
+from gensim.models.word2vec import KeyedVectors
 
 from lda2vec import utils
 from lda2vec import prepare_topics, print_top_words_per_topic, topic_coherence
@@ -7,21 +17,6 @@ from lda2vec import EmbedMixture
 from lda2vec import dirichlet_likelihood
 from lda2vec.utils import move
 from model import LDA2Vec
-import numpy as np
-import logging
-import chainer
-from chainer import cuda
-import chainer.optimizers as O
-import time
-import shelve
-import logging
-from collections import defaultdict
-from gensim.models.word2vec import KeyedVectors
-
-gpu_id = int(os.getenv('CUDA_GPU', 0))
-cuda.get_device(gpu_id).use()
-print "Using GPU " + str(gpu_id)
-
 
 
 class Lda2VecFeaturizer:
@@ -51,6 +46,11 @@ class Lda2VecFeaturizer:
         self.word2vec_model = KeyedVectors.load_word2vec_format(word2vec_path, binary=True)
 
     def preprocess(self, docs=None):
+        """ Uses spaCy to quickly tokenize text and return an array
+    of indices.
+    This method stores a global NLP directory in memory, and takes
+    up to a minute to run for the time. Later calls will have the
+    tokenizer in memory."""
 
         assert (isinstance(docs, list)), ("input list of documents")
         assert (all(isinstance(doc, unicode) for doc in docs)),("expected unicode, got string")
@@ -103,7 +103,18 @@ class Lda2VecFeaturizer:
 
         
     def train(self,docs=None, epochs=200, update_words=False, update_topics=True):
-        
+        """  Takes the training documents as a list of documents
+        preprocesses the documents and reurns a dictionary data containing the
+        Topic distribution
+        Vocab
+        document length
+        and topic word distribution"""
+
+        texts = docs
+        docs = []
+        for text in texts:
+            docs.append(unicode(" ".join(word for word in text.split() if word in self.word2vec_model.vocab)))
+
         logging.info("preprocessing...")
         self.preprocess(docs)
         logging.info('preprocessed!')
@@ -120,9 +131,9 @@ class Lda2VecFeaturizer:
         
         
         if self.words_pretrained:
-            self.train_model.sampler.W.data[:, :] = self.vectors[:self.n_vocab, :]
+            self.train_model.sampler.W.data = self.vectors[:self.n_vocab, :]
 
-        self.train_model.to_gpu()
+
 
         optimizer = O.Adam()
         optimizer.setup(self.train_model)
@@ -187,6 +198,8 @@ class Lda2VecFeaturizer:
                 temperature=1,\
                 max_length=1000,\
                 min_count=0):
+    """ Initializes parameters for testing, if needed
+    Usually not called. """
         
         # 'Strength' of the dircihlet prior; 200.0 seems to work well
         self.clambda = clambda
@@ -203,6 +216,16 @@ class Lda2VecFeaturizer:
         logging.info('Test parameters initialized!')
 
     def infer(self,docs=None,epochs=200, update_words=False, update_topics=False, topic_vectors=None):
+        """ Infers the featurs of a new document that is passed in.
+         By running the Lda2vec algorithm again.
+        But by updating only the topic distributions"""
+
+        texts = docs
+        docs = []
+        for text in texts:
+            docs.append(unicode(" ".join(word for word in text.split() if word in self.word2vec_model.vocab)))
+
+        logging.info("preprocessing")
         
         self.preprocess(docs)
         
@@ -219,14 +242,13 @@ class Lda2VecFeaturizer:
         
         
         if self.words_pretrained:
-            self.infer_model.sampler.W.data[:, :] = self.vectors[:self.n_vocab, :]
+            self.infer_model.sampler.W.data = self.vectors[:self.n_vocab, :]
 
-        self.infer_model.mixture.factors.W.data[:, :] = self.train_model.mixture.factors.W.data
+        self.infer_model.mixture.factors.W.data = self.train_model.mixture.factors.W.data
         if topic_vectors is not None:
             assert(topic_vectors.shape==self.infer_model.mixture.factors.W.data.shape), ("topic vectors shape doesn't match")
-            self.infer_model.mixture.factors.W.data[:, :] = topic_vectors
+            self.infer_model.mixture.factors.W.data = topic_vectors
 
-        self.infer_model.to_gpu()
 
         optimizer = O.Adam()
         optimizer.setup(self.infer_model)

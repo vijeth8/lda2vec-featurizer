@@ -29,11 +29,17 @@ class LDA2Vec(Chain):
         self.n_samples = n_samples
 
     def prior(self):
+        """ Returns the log likelihood of the observed topic proportions."""
+
         dl1 = dirichlet_likelihood(self.mixture.weights)
         return dl1
 
     def fit_partial(self, rdoc_ids, rword_indices, window=5,
                     update_words=False, update_topics=True):
+    """ Function where all the training happens. Word vector training,
+    topic vector training and the topic distribution is updated 
+    """
+    
         doc_ids, word_indices = move(self.xp, rdoc_ids, rword_indices)
         pivot_idx = next(move(self.xp, rword_indices[window: -window]))
         pivot = F.embed_id(pivot_idx, self.sampler.W)
