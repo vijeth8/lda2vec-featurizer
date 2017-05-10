@@ -1,2 +1,10 @@
 # lda2vec-featurizer
-![Model View Controller](l2v.pdf)
+
+
+![alt tag](images/l2v-1.png)
+
+![alt tag](images/l2v-2.png)
+
+![alt tag](images/l2v-3.png)
+
+![alt tag](images/l2v-4.png)
