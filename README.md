@@ -1,6 +1,6 @@
 # lda2vec-featurizer
 
-### Used Chris Moody's Lda2vec algorithm, in attempt to infer topic distribution of test documents that contain words that are out of the training vocabulary.
+### Uses Chris Moody's Lda2vec algorithm, in attempt to infer topic distribution of test documents that contain words that are out of the training vocabulary.
 
 ![alt tag](images/l2v-1.jpg)
 
